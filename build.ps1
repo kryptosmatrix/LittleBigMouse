@@ -195,11 +195,16 @@ if ($msbuild) {
 
 # 4) Optional: sign binaries before packaging
 if ($Sign) {
+  # Allow password via environment variable to avoid putting secrets in history
+  $effectivePfxPassword = $PfxPassword
+  if (-not $effectivePfxPassword -and $env:LBM_PFX_PASSWORD) {
+    $effectivePfxPassword = $env:LBM_PFX_PASSWORD
+  }
   $signtool = Find-SignTool
   if (-not $signtool) { throw 'signtool.exe not found. Install Windows 10/11 SDK or Visual Studio Signing tools.' }
-  Sign-File -File $uiExe -SignToolPath $signtool -PfxPath $PfxPath -PfxPassword $PfxPassword -CertThumbprint $CertThumbprint -UseMachineStore:$UseMachineStore -TimestampUrl $TimestampUrl
+  Sign-File -File $uiExe -SignToolPath $signtool -PfxPath $PfxPath -PfxPassword $effectivePfxPassword -CertThumbprint $CertThumbprint -UseMachineStore:$UseMachineStore -TimestampUrl $TimestampUrl
   if (Test-Path $hookExe) {
-    Sign-File -File $hookExe -SignToolPath $signtool -PfxPath $PfxPath -PfxPassword $PfxPassword -CertThumbprint $CertThumbprint -UseMachineStore:$UseMachineStore -TimestampUrl $TimestampUrl
+    Sign-File -File $hookExe -SignToolPath $signtool -PfxPath $PfxPath -PfxPassword $effectivePfxPassword -CertThumbprint $CertThumbprint -UseMachineStore:$UseMachineStore -TimestampUrl $TimestampUrl
   }
 }
 
@@ -221,11 +226,14 @@ if (-not $installer) { throw 'Installer not found after compile.' }
 if ($Sign) {
   $signtool = $signtool ?? (Find-SignTool)
   if (-not $signtool) { throw 'signtool.exe not found for signing installer.' }
-  Sign-File -File $installer.FullName -SignToolPath $signtool -PfxPath $PfxPath -PfxPassword $PfxPassword -CertThumbprint $CertThumbprint -UseMachineStore:$UseMachineStore -TimestampUrl $TimestampUrl
+  $effectivePfxPassword = $PfxPassword
+  if (-not $effectivePfxPassword -and $env:LBM_PFX_PASSWORD) {
+    $effectivePfxPassword = $env:LBM_PFX_PASSWORD
+  }
+  Sign-File -File $installer.FullName -SignToolPath $signtool -PfxPath $PfxPath -PfxPassword $effectivePfxPassword -CertThumbprint $CertThumbprint -UseMachineStore:$UseMachineStore -TimestampUrl $TimestampUrl
 }
 
 Write-Host 'Build complete.' -ForegroundColor Green
 Write-Host ("UI:       {0}" -f $uiExe)
 if (Test-Path $hookExe) { Write-Host ("Hook:     {0}" -f $hookExe) }
 Write-Host ("Installer: {0}" -f $installer.FullName)
-
